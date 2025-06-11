@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Website Builder</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="header">
+        <h1>Simple Website Builder</h1>
+    </div>
+    
+    <div class="container">
+        <div class="sidebar">
+            <h3>Elements</h3>
+            <div class="element-item" draggable="true" data-type="text">Text</div>
+            <div class="element-item" draggable="true" data-type="button">Button</div>
+            <div class="element-item" draggable="true" data-type="image">Image</div>
+        </div>
+        
+        <div class="canvas-container">
+            <div class="canvas" id="canvas"></div>
+        </div>
+        
+        <div class="properties-panel" id="properties-panel">
+            <h3>Properties</h3>
+            <div id="properties-form">
+                <p>Select an element to edit its properties.</p>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
