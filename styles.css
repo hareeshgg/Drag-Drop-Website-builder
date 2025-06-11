@@ -76,6 +76,33 @@
             border-bottom: 1px solid #eee;
             padding-bottom: 10px;
         }
+
+#properties-form {
+    overflow-y: auto;
+    max-height: calc(100% - 40px);
+    padding: 10px;
+}
+
+#properties-form p {
+    margin: 0;
+    padding: 10px;
+    color: #666;
+}
+
+#apply-properties {
+    background-color: #4a6fa5;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 10px;
+    width: 100%;
+}
+
+#apply-properties:hover {
+    background-color: #3a5a8f;
+}
         
         .form-group {
             margin-bottom: 15px;
@@ -147,7 +174,7 @@
         .resize-handle {
             width: 10px;
             height: 10px;
-            background-color: #4a6fa5;
+            background-color: #0a0a0a;
             position: absolute;
             right: 0;
             bottom: 0;

@@ -1,17 +1,50 @@
 document.addEventListener('DOMContentLoaded', function() {
     const canvas = document.getElementById('canvas');
     const propertiesForm = document.getElementById('properties-form');
-    const propertiesPanel = document.getElementById('properties-panel');
     let selectedElement = null;
     let offsetX, offsetY;
     let isResizing = false;
     let isDragging = false;
     let startWidth, startHeight;
+    let touchIdentifier = null;
+
+    // Helper function to get touch position
+    function getTouchPosition(e) {
+        const rect = canvas.getBoundingClientRect();
+        const touch = Array.from(e.changedTouches).find(t => t.identifier === touchIdentifier) || e.changedTouches[0];
+        return {
+            x: touch.clientX - rect.left,
+            y: touch.clientY - rect.top
+        };
+    }
 
     // Make sidebar elements draggable
     document.querySelectorAll('.element-item').forEach(item => {
+        // For mouse
         item.addEventListener('dragstart', function(e) {
             e.dataTransfer.setData('text/plain', this.dataset.type);
+        });
+        
+        // For touch - long press to drag
+        item.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            touchIdentifier = e.changedTouches[0].identifier;
+            setTimeout(() => {
+                if (touchIdentifier !== null) { // Still touching after 500ms
+                    const type = this.dataset.type;
+                    const rect = this.getBoundingClientRect();
+                    const x = rect.left + rect.width/2;
+                    const y = rect.top + rect.height/2;
+                    
+                    const canvasRect = canvas.getBoundingClientRect();
+                    createElement(type, x - canvasRect.left, y - canvasRect.top);
+                    touchIdentifier = null;
+                }
+            }, 500);
+        }, {passive: false});
+        
+        item.addEventListener('touchend', function() {
+            touchIdentifier = null;
         });
     });
     
@@ -30,20 +63,18 @@ document.addEventListener('DOMContentLoaded', function() {
         createElement(type, x, y);
     });
     
-    // Create a new element on the canvas
+    // Create element function (same as before)
     function createElement(type, x, y) {
         const element = document.createElement('div');
         element.className = `draggable-element ${type}-element`;
         element.dataset.type = type;
         
-        // Position the element
         element.style.left = `${x}px`;
         element.style.top = `${y}px`;
         
-        // Add content based on type
         switch(type) {
             case 'text':
-                element.textContent = 'Double click to edit text';
+                element.textContent = 'Double tap to edit text';
                 element.contentEditable = true;
                 break;
             case 'button':
@@ -57,26 +88,28 @@ document.addEventListener('DOMContentLoaded', function() {
                 break;
         }
         
-        // Add resize handle
         const resizeHandle = document.createElement('div');
         resizeHandle.className = 'resize-handle';
         element.appendChild(resizeHandle);
         
-        // Add to canvas
         canvas.appendChild(element);
-        
-        // Make draggable
         setupElementInteractions(element);
-        
-        // Select the new element
         selectElement(element);
     }
     
-    // Set up drag and selection for elements
+    // Set up interactions (updated for touch)
     function setupElementInteractions(element) {
         const resizeHandle = element.querySelector('.resize-handle');
         
-        element.addEventListener('mousedown', function(e) {
+        // Mouse events
+        element.addEventListener('mousedown', handleElementMouseDown);
+        element.addEventListener('dblclick', handleElementDoubleClick);
+        
+        // Touch events
+        element.addEventListener('touchstart', handleElementTouchStart, {passive: false});
+        element.addEventListener('touchend', handleElementTouchEnd);
+        
+        function handleElementMouseDown(e) {
             if (e.target === resizeHandle) {
                 isResizing = true;
                 startWidth = parseInt(element.style.width) || element.offsetWidth;
@@ -85,40 +118,112 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            // Bring to front
-            this.style.zIndex = 100;
-            
-            // Calculate offset
-            const rect = this.getBoundingClientRect();
+            element.style.zIndex = 100;
+            const rect = element.getBoundingClientRect();
             offsetX = e.clientX - rect.left;
             offsetY = e.clientY - rect.top;
             isDragging = true;
-            selectElement(this);
+            selectElement(element);
             e.preventDefault();
-        });
+        }
         
-        element.addEventListener('dblclick', function() {
+        function handleElementTouchStart(e) {
+            if (e.target === resizeHandle) {
+                isResizing = true;
+                startWidth = parseInt(element.style.width) || element.offsetWidth;
+                startHeight = parseInt(element.style.height) || element.offsetHeight;
+                touchIdentifier = e.changedTouches[0].identifier;
+                e.stopPropagation();
+                return;
+            }
+            
+            element.style.zIndex = 100;
+            const rect = element.getBoundingClientRect();
+            const touch = e.changedTouches[0];
+            offsetX = touch.clientX - rect.left;
+            offsetY = touch.clientY - rect.top;
+            isDragging = true;
+            touchIdentifier = touch.identifier;
+            selectElement(element);
+            e.preventDefault();
+        }
+        
+        function handleElementTouchEnd() {
+            isResizing = false;
+            isDragging = false;
+            touchIdentifier = null;
+        }
+        
+        function handleElementDoubleClick() {
             if (this.dataset.type === 'text') {
                 this.focus();
             }
-        });
+        }
     }
     
-    // Select an element and show its properties
+    // Movement handling for both mouse and touch
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('touchmove', handleTouchMove, {passive: false});
+    document.addEventListener('mouseup', handlePointerUp);
+    document.addEventListener('touchend', handlePointerUp);
+    
+    function handleMove(e) {
+        if (!selectedElement) return;
+        
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        handleMovement(x, y);
+    }
+    
+    function handleTouchMove(e) {
+        if (!selectedElement || touchIdentifier === null) return;
+        
+        const pos = getTouchPosition(e);
+        handleMovement(pos.x, pos.y);
+        e.preventDefault();
+    }
+    
+    function handleMovement(x, y) {
+        if (isResizing) {
+            const width = x - selectedElement.offsetLeft;
+            const height = y - selectedElement.offsetTop;
+            selectedElement.style.width = `${Math.max(50, width)}px`;
+            selectedElement.style.height = `${Math.max(20, height)}px`;
+        } else if (isDragging) {
+            selectedElement.style.left = `${x - offsetX}px`;
+            selectedElement.style.top = `${y - offsetY}px`;
+        }
+    }
+    
+    function handlePointerUp() {
+        isResizing = false;
+        isDragging = false;
+        touchIdentifier = null;
+    }
+    
+    // Canvas touch handling
+    canvas.addEventListener('touchstart', function(e) {
+        if (e.target === canvas) {
+            if (selectedElement) {
+                selectedElement.classList.remove('selected');
+                selectedElement = null;
+                propertiesForm.innerHTML = '<p>Select an element to edit its properties.</p>';
+            }
+        }
+    }, {passive: false});
+    
+    // Select element and update properties form (same as before)
     function selectElement(element) {
-        // Deselect previous element
         if (selectedElement) {
             selectedElement.classList.remove('selected');
         }
-        
         selectedElement = element;
         element.classList.add('selected');
-        
-        // Update properties panel
         updatePropertiesForm(element);
     }
     
-    // Update the properties form based on selected element
     function updatePropertiesForm(element) {
         const type = element.dataset.type;
         
@@ -204,46 +309,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 break;
         }
     }
-    
-    // Handle mouse move for dragging and resizing
-    document.addEventListener('mousemove', function(e) {
-        if (!selectedElement) return;
-        
-        const rect = canvas.getBoundingClientRect();
-        
-        if (isResizing) {
-            // Resize the element
-            const width = e.clientX - rect.left - selectedElement.offsetLeft;
-            const height = e.clientY - rect.top - selectedElement.offsetTop;
-            
-            selectedElement.style.width = `${Math.max(50, width)}px`;
-            selectedElement.style.height = `${Math.max(20, height)}px`;
-        } else if (isDragging) {
-            // Move the element
-            const x = e.clientX - rect.left - offsetX;
-            const y = e.clientY - rect.top - offsetY;
-            
-            selectedElement.style.left = `${x}px`;
-            selectedElement.style.top = `${y}px`;
-        }
-    });
-    
-    // Handle mouse up to stop dragging/resizing
-    document.addEventListener('mouseup', function() {
-        isResizing = false;
-        isDragging = false;
-    });
-    
-    // Click on canvas to deselect
-    canvas.addEventListener('mousedown', function(e) {
-        if (e.target === canvas) {
-            if (selectedElement) {
-                selectedElement.classList.remove('selected');
-                selectedElement = null;
-                propertiesForm.innerHTML = '<p>Select an element to edit its properties.</p>';
-            }
-        }
-    });
     
     // Handle keydown for deleting selected element
     document.addEventListener('keydown', function(e) {
